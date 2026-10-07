@@ -1,13 +1,21 @@
-import { Redirect, Stack, router } from 'expo-router'
-import { useAuth } from '@clerk/clerk-expo'
-import { View } from 'react-native'
-import {AntDesign, MaterialIcons, Entypo} from '@expo/vector-icons'
+import { Redirect, Stack, router } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
+import { ActivityIndicator, View } from "react-native";
+import { AntDesign, MaterialIcons, Entypo } from "@expo/vector-icons";
 
 export default function AppLayout() {
-  const { isSignedIn } = useAuth()
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#FF5700" />
+      </View>
+    );
+  }
 
   if (!isSignedIn) {
-    return <Redirect href={'/signIn'} />
+    return <Redirect href={"/signIn"} />;
   }
 
   return (

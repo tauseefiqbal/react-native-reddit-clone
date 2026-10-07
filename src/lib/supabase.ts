@@ -1,19 +1,24 @@
 // src/lib/supbase.ts
 
-import { AppState } from "react-native";
+import { useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../types/database.types";
 import { useSession } from "@clerk/clerk-expo";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-// TODO: check if it creates a client everytime we use it
-export const useSupabase = () => {
-  const { session } = useSession();
+let globalGetClerkToken: (() => Promise<string | null | undefined>) | null =
+  null;
+let supabaseSingleton: SupabaseClient<Database> | null = null;
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+function getSupabaseClient(): SupabaseClient<Database> {
+  if (supabaseSingleton) {
+    return supabaseSingleton;
+  }
+
+  supabaseSingleton = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       storage: AsyncStorage,
       autoRefreshToken: true,
@@ -21,20 +26,23 @@ export const useSupabase = () => {
       detectSessionInUrl: false,
     },
     global: {
-      // Get the custom Supabase token from Clerk
       fetch: async (url, options = {}) => {
-        // The Clerk `session` object has the getToken() method
-        const clerkToken = await session?.getToken({
-          // Pass the name of the JWT template you created in the Clerk Dashboard
-          // For this tutorial, you named it 'supabase'
-          template: "supabase",
-        });
+        let clerkToken: string | null | undefined = null;
+        if (globalGetClerkToken) {
+          try {
+            clerkToken = await globalGetClerkToken();
+          } catch (error) {
+            console.warn("Clerk getToken failed:", error);
+          }
+        }
 
-        // Insert the Clerk Supabase token into the headers
         const headers = new Headers(options?.headers);
-        headers.set("Authorization", `Bearer ${clerkToken}`);
+        if (clerkToken) {
+          headers.set("Authorization", `Bearer ${clerkToken}`);
+        } else {
+          headers.set("Authorization", `Bearer ${supabaseAnonKey}`);
+        }
 
-        // Call the default fetch
         return fetch(url, {
           ...options,
           headers,
@@ -42,6 +50,29 @@ export const useSupabase = () => {
       },
     },
   });
+
+  return supabaseSingleton;
+}
+
+export const useSupabase = () => {
+  const { session, isSignedIn } = useSession();
+
+  // Always update the module-level token getter with the latest active session
+  globalGetClerkToken = async () => {
+    if (!isSignedIn || !session) {
+      return null;
+    }
+    try {
+      return await session.getToken({ template: "supabase" });
+    } catch (e: any) {
+      // If the session is inactive or token template fails, don't throw an unhandled rejection
+      const msg = e?.message || String(e);
+      console.warn("Clerk session token error:", msg);
+      return null;
+    }
+  };
+
+  return useMemo(() => getSupabaseClient(), []);
 };
 
 // Tells Supabase Auth to continuously refresh the session automatically

@@ -45,12 +45,14 @@ export default function HomeScreen() {
   return (
     <FlatList
       data={posts}
+      keyExtractor={(item) => item.id}
       renderItem={({ item }) => <PostListItem post={item} />}
       onRefresh={refetch}
       refreshing={isRefetching}
       onEndReachedThreshold={2}
       onEndReached={() => !isFetchingNextPage && hasNextPage && fetchNextPage()}
       ListFooterComponent={isFetchingNextPage ? <ActivityIndicator /> : null}
+      removeClippedSubviews={false}
     />
   );
 }

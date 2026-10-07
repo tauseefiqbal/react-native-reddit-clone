@@ -1,7 +1,7 @@
 import { Image, Pressable, Text, View, StyleSheet } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { formatDistanceToNowStrict } from "date-fns";
-import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { Tables } from "../types/database.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSupabase } from "../lib/supabase";
@@ -26,6 +26,7 @@ export default function PostListItem({
   post,
   isDetailedPost,
 }: PostListItemProps) {
+  const router = useRouter();
   const supabase = useSupabase();
 
   const queryClient = useQueryClient();
@@ -49,9 +50,10 @@ export default function PostListItem({
   const shouldShowImage = isDetailedPost || post.image;
   const shouldShowDescription = isDetailedPost || !post.image;
   return (
-    <Link href={`/post/${post.id}`} asChild>
       <Pressable
+        onPress={() => router.push(`/post/${post.id}`)}
         style={{
+          width: "100%",
           paddingHorizontal: 15,
           paddingVertical: 10,
           gap: 7,
@@ -112,11 +114,23 @@ export default function PostListItem({
           {post.title}
         </Text>
         {shouldShowImage && post.image && (
-          <SupabaseImage
-            path={post.image}
-            bucket="images"
-            style={{ width: "100%", aspectRatio: 4 / 3, borderRadius: 15 }}
-          />
+          <View
+            collapsable={false}
+            style={{
+              width: "100%",
+              aspectRatio: 4 / 3,
+              borderRadius: 15,
+              overflow: "hidden",
+              backgroundColor: "gainsboro",
+            }}
+          >
+            <SupabaseImage
+              key={post.image}
+              path={post.image}
+              bucket="images"
+              style={{ width: "100%", height: "100%" }}
+            />
+          </View>
         )}
 
         {shouldShowDescription && post.description && (
@@ -195,7 +209,6 @@ export default function PostListItem({
           </View>
         </View>
       </Pressable>
-    </Link>
   );
 }
 

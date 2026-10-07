@@ -1,6 +1,7 @@
 import { ComponentProps, useEffect, useState } from "react";
 import { ActivityIndicator, Image, View } from "react-native";
-import { downloadImage } from "../utils/supabaseImages";
+import { useSession } from "@clerk/clerk-expo";
+import { resolveImageUri } from "../utils/supabaseImages";
 import { useSupabase } from "../lib/supabase";
 
 type SupabaseImageProps = {
@@ -11,27 +12,52 @@ type SupabaseImageProps = {
 export default function SupabaseImage({
   path,
   bucket,
+  style,
   ...imageProps
 }: SupabaseImageProps) {
-  const [image, setImage] = useState<string>();
+  const [imageUri, setImageUri] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const supabase = useSupabase();
-
-  const handleDownload = async () => {
-    const result = await downloadImage(path, supabase);
-    setImage(result);
-    setIsLoading(false);
-  };
+  const { session } = useSession();
 
   useEffect(() => {
-    setIsLoading(true);
-    if (path && bucket) {
-      handleDownload();
-    } else {
-      setIsLoading(false);
-    }
-  }, [path, bucket]);
+    let cancelled = false;
+
+    const load = async () => {
+      setIsLoading(true);
+      setHasError(false);
+      setImageUri(undefined);
+
+      if (!path || !bucket) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const uri = await resolveImageUri(path, bucket, supabase);
+        if (!cancelled) {
+          setImageUri(uri);
+        }
+      } catch (err) {
+        console.warn("Failed to resolve Supabase image path:", path, err);
+        if (!cancelled) {
+          setHasError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [path, bucket, session?.id]);
 
   if (isLoading) {
     return (
@@ -42,7 +68,7 @@ export default function SupabaseImage({
             alignItems: "center",
             justifyContent: "center",
           },
-          imageProps.style,
+          style,
         ]}
       >
         <ActivityIndicator />
@@ -50,5 +76,31 @@ export default function SupabaseImage({
     );
   }
 
-  return <Image source={{ uri: image }} {...imageProps} />;
+  if (hasError || !imageUri) {
+    return (
+      <View
+        style={[
+          {
+            backgroundColor: "gainsboro",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          style,
+        ]}
+      />
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: imageUri }}
+      style={style}
+      resizeMode="cover"
+      onError={(e) => {
+        console.warn("Failed to display image:", imageUri, e.nativeEvent?.error);
+        setHasError(true);
+      }}
+      {...imageProps}
+    />
+  );
 }
