@@ -13,6 +13,14 @@ const mimeByExt: Record<string, string> = {
   heic: "image/heic",
 };
 
+const extByMime: Record<string, string> = {
+  "image/jpeg": "jpeg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/heic": "heic",
+};
+
 const normalizeStoragePath = (path: string) => path.replace(/^\//, "");
 
 /** Resolves a post/group image path or URL to something React Native Image can load. */
@@ -79,13 +87,19 @@ export const resolveImageUri = async (
 export const uploadImage = async (
   localUri: string,
   supabase: SupabaseClient<Database>,
+  mimeType?: string,
 ) => {
   const fileRes = await fetch(localUri);
   const arrayBuffer = await fileRes.arrayBuffer();
 
-  const fileExt = localUri.split(".").pop()?.toLowerCase() ?? "jpeg";
+  const uriWithoutQuery = localUri.split(/[?#]/, 1)[0];
+  const uriExt = uriWithoutQuery.split(".").pop()?.toLowerCase();
+  const normalizedMimeType = mimeType?.toLowerCase();
+  const fileExt =
+    (normalizedMimeType && extByMime[normalizedMimeType]) ||
+    (uriExt && mimeByExt[uriExt] ? uriExt : "jpeg");
   const path = `${Date.now()}.${fileExt}`;
-  const contentType = mimeByExt[fileExt] ?? "image/jpeg";
+  const contentType = normalizedMimeType ?? mimeByExt[fileExt] ?? "image/jpeg";
 
   const { error, data } = await supabase.storage
     .from("images")

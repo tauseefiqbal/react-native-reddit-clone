@@ -97,7 +97,7 @@ export default function SupabaseImage({
       style={style}
       resizeMode="cover"
       onError={(e) => {
-        console.warn("Failed to display image:", imageUri, e.nativeEvent?.error);
+        console.warn("Failed to display Supabase image:", e.nativeEvent?.error);
         setHasError(true);
       }}
       {...imageProps}

@@ -26,7 +26,7 @@ import { insertPost } from "../../../services/postService";
 export default function CreateScreen() {
   const [title, setTitle] = useState<string>("");
   const [bodyText, setBodyText] = useState<string>("");
-  const [image, setImage] = useState<string | null>(null);
+  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const [group, setGroup] = useAtom(selectedGroupAtom);
 
@@ -65,7 +65,9 @@ export default function CreateScreen() {
   });
 
   const onPostClick = async () => {
-    let imagePath = image ? await uploadImage(image, supabase) : undefined;
+    let imagePath = image
+      ? await uploadImage(image.uri, supabase, image.mimeType ?? undefined)
+      : undefined;
 
     mutate(imagePath);
   };
@@ -88,7 +90,7 @@ export default function CreateScreen() {
     console.log(result);
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      setImage(result.assets[0]);
     }
   };
 
@@ -171,7 +173,7 @@ export default function CreateScreen() {
                 }}
               />
               <Image
-                source={{ uri: image }}
+                source={{ uri: image.uri }}
                 style={{ width: "100%", aspectRatio: 1 }}
               />
             </View>
